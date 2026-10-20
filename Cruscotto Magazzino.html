@@ -1,0 +1,307 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Cruscotto Magazzino</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* Layout: filtri in alto, 6 card KPI, poi mappa 3D del magazzino a sinistra e matrice + ubicazioni da controllare a destra */
+:root{
+  --bg:#F3F5F7;--surface:#FFFFFF;--fg:#17202A;--muted:#5B6776;--line:#DDE2E8;--accent:#0F6E7A;
+  --sat0:#E3F0F2;--sat1:#0B5560;
+  --ok:#2E9E6B;--low:#D64545;--over:#E0A21B;--empty:#C3CAD3;
+  --ca:#2F5FD0;--cb:#7E57C2;--cc:#8794A3;
+  --floor:#E8ECF0;--floorline:#C9D1DA;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;--body:"Source Sans 3","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F161C;--surface:#17212A;--fg:#E6EBF0;--muted:#98A5B3;--line:#2A3641;--accent:#4DB6C4;
+  --sat0:#17323A;--sat1:#5CC8D6;--ok:#4CC38A;--low:#F0707A;--over:#F0BE4B;--empty:#3A4651;
+  --ca:#6F93F0;--cb:#A98BE0;--cc:#8D99A8;--floor:#1C2731;--floorline:#33414E;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F161C;--surface:#17212A;--fg:#E6EBF0;--muted:#98A5B3;--line:#2A3641;--accent:#4DB6C4;
+  --sat0:#17323A;--sat1:#5CC8D6;--ok:#4CC38A;--low:#F0707A;--over:#F0BE4B;--empty:#3A4651;
+  --ca:#6F93F0;--cb:#A98BE0;--cc:#8D99A8;--floor:#1C2731;--floorline:#33414E;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;
+  padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{font-family:var(--display);font-size:clamp(24px,4vw,32px);line-height:1.1;margin:0;font-weight:700;text-wrap:balance}
+h2{font-family:var(--display);font-size:17px;margin:0;font-weight:600}
+.sub{color:var(--muted);margin:4px 0 0}
+.badge{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:2px 9px;margin-bottom:8px}
+.filters{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:end;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.filters label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);min-width:0}
+select{font:inherit;font-size:15px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:150px;max-width:100%}
+select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.reset{font:inherit;font-weight:600;color:var(--accent);background:none;border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.card .l{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.card .v{font-family:var(--display);font-size:30px;font-weight:700;line-height:1.15;margin-top:4px;font-variant-numeric:tabular-nums}
+.card .d{font-size:13px;color:var(--muted);margin-top:2px}
+.card.alert .v{color:var(--low)}
+.grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.panel header{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:8px}
+.right{display:flex;flex-direction:column;gap:16px;min-width:0}
+.mapbox{position:relative}
+canvas{display:block;width:100%;height:auto;touch-action:manipulation}
+.tip{position:absolute;pointer-events:none;background:var(--fg);color:var(--bg);border-radius:8px;padding:8px 10px;font-size:13px;line-height:1.35;max-width:230px;z-index:2;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.tip b{font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+.tablewrap{overflow-x:auto}
+table{border-collapse:separate;border-spacing:3px;width:100%;font-variant-numeric:tabular-nums}
+th{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);text-align:center;padding:4px}
+th.row{text-align:left}
+td{padding:0}
+td button{font:inherit;font-weight:600;width:100%;min-height:38px;border:0;border-radius:6px;cursor:pointer;color:inherit}
+td.tot button{background:none;border:1px solid var(--line);color:var(--fg)}
+td button[aria-pressed="true"],td button.sel{outline:2px solid var(--fg);outline-offset:-2px}
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.list button{font:inherit;text-align:left;width:100%;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--fg)}
+.list button.sel{border-color:var(--accent)}
+.list .loc{font-weight:700;font-variant-numeric:tabular-nums}
+.list .prod{color:var(--muted);font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px;color:#fff}
+.pill.low{background:var(--low)}.pill.empty{background:var(--empty);color:var(--fg)}
+.note{color:var(--muted);font-size:13px;margin:0}
+.sr{position:absolute;left:-9999px}
+.credit{border-top:1px solid var(--line);padding-top:14px;color:var(--muted);font-size:14px;text-align:center}
+.credit strong{color:var(--fg)}
+.credit a{color:var(--accent);font-weight:600}
+.credit a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<div class="wrap">
+  <div>
+    <span class="badge">Dati fittizi · progetto dimostrativo</span>
+    <h1>Cruscotto Magazzino</h1>
+    <p class="sub">Magazzino tessuti di un'azienda tessile: 6 corridoi, 12 campate, 3 livelli (216 ubicazioni). Filtra, clicca sulla matrice o sulla mappa.</p>
+  </div>
+
+  <div class="filters" role="group" aria-label="Filtri">
+    <label>Classe ABC<select id="fClasse"><option value="">Tutte</option><option>A</option><option>B</option><option>C</option></select></label>
+    <label>Fornitore<select id="fForn"><option value="">Tutti</option></select></label>
+    <label>Colora la mappa per<select id="fColor"><option value="stato">Stato scorta</option><option value="sat">Saturazione</option><option value="abc">Classe ABC</option></select></label>
+    <label>Valore nella matrice<select id="fMat"><option value="sat">Saturazione %</option><option value="qty">Pezze in giacenza</option><option value="cov">Giorni di copertura</option></select></label>
+    <button class="reset" id="reset" type="button">Azzera filtri e selezione</button>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="grid">
+    <section class="panel" aria-labelledby="hMap">
+      <header><div><h2 id="hMap">Mappa del magazzino</h2><p class="note">Ogni cubo è un'ubicazione. Passa sopra o tocca per i dettagli.</p></div></header>
+      <div class="mapbox" id="mapbox"><canvas id="cv" role="img" aria-label="Mappa isometrica del magazzino con 216 ubicazioni colorate per stato"></canvas><div class="tip" id="tip" hidden></div></div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <div class="right">
+      <section class="panel" aria-labelledby="hMat">
+        <header><div><h2 id="hMat">Matrice corridoio × livello</h2><p class="note" id="matNote"></p></div></header>
+        <div class="tablewrap"><table id="mat"></table></div>
+      </section>
+      <section class="panel" aria-labelledby="hList">
+        <header><div><h2 id="hList">Da controllare</h2><p class="note">Le 6 ubicazioni sotto scorta con meno giorni di copertura.</p></div></header>
+        <ul class="list" id="list"></ul>
+      </section>
+    </div>
+  </div>
+  <p class="note">Dati generati a caso per l'esercizio. Saturazione = pezze in giacenza ÷ capacità. Giorni di copertura = giacenza ÷ consumo giornaliero. Rotazione = consumo annuo ÷ giacenza.</p>
+  <footer class="credit">Ideato e creato da <strong>Renata Balsani</strong> · <a href="https://www.linkedin.com/in/renatabalsani/" target="_blank" rel="noopener">LinkedIn</a></footer>
+</div>
+
+<script>
+(function(){
+// ---------- dati fittizi (seed fisso) ----------
+function rng(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+var R=rng(1663);
+var AIS=['A','B','C','D','E','F'],BAYS=12,LEV=3,CAP=40;
+var FORN=['Merino Sud','Alpi Fibre','Tinto Nord','Filati Est','Cotoniera Ovest'];
+var PROD=[
+ {n:'Pettinato 280 g grigio',c:'A',p:46,d:3.2,f:0},{n:'Flanella 320 g antracite',c:'A',p:52,d:2.8,f:1},
+ {n:'Lana-seta blu notte',c:'A',p:64,d:2.4,f:0},{n:'Pettinato 240 g beige',c:'A',p:44,d:3.0,f:2},
+ {n:'Cashmere mix cammello',c:'B',p:118,d:1.1,f:1},{n:'Tweed spigato',c:'B',p:72,d:1.2,f:3},
+ {n:'Gabardine 260 g nero',c:'B',p:58,d:1.4,f:2},{n:'Jersey di lana',c:'B',p:39,d:1.5,f:4},
+ {n:'Mohair blend verde',c:'C',p:95,d:.35,f:3},{n:'Bouclé panna',c:'C',p:81,d:.4,f:4},
+ {n:'Velluto di lana',c:'C',p:77,d:.3,f:1},{n:'Feltro 400 g rosso',c:'C',p:49,d:.45,f:2}
+];
+var LOCS=[];
+for(var a=0;a<AIS.length;a++)for(var b=0;b<BAYS;b++)for(var l=0;l<LEV;l++){
+  var pref=a<2?'A':a<4?'B':'C',cls=R()<.8?pref:['A','B','C'][Math.floor(R()*3)];
+  var pool=PROD.filter(function(x){return x.c===cls});var pr=pool[Math.floor(R()*pool.length)];
+  var r=R(),q;
+  if(r<.07)q=0;else if(r<.19)q=Math.round(CAP*(.05+R()*.2));else if(r<.86)q=Math.round(CAP*(.3+R()*.55));else q=Math.round(CAP*(.93+R()*.07));
+  var daily=Math.max(.05,pr.d*(.8+R()*.4)/4);
+  var st=q===0?'empty':q/CAP<.26?'low':q/CAP>.92?'over':'ok';
+  LOCS.push({a:a,b:b,l:l,id:AIS[a]+'-'+String(b+1).padStart(2,'0')+'-'+(l+1),pr:pr,q:q,cap:CAP,daily:daily,cov:q/daily,st:st});
+}
+FORN.forEach(function(f){var o=document.createElement('option');o.textContent=f;o.value=f;document.getElementById('fForn').appendChild(o)});
+
+// ---------- stato ----------
+var S={cls:'',forn:'',color:'stato',mat:'sat',selA:-1,selL:-1,focus:null,hover:null};
+function active(x){return(!S.cls||x.pr.c===S.cls)&&(!S.forn||FORN[x.pr.f]===S.forn)}
+function fmt(n,d){return n.toLocaleString('it-IT',{maximumFractionDigits:d||0})}
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+function hex(h){h=h.replace('#','');return[0,2,4].map(function(i){return parseInt(h.substr(i,2),16)})}
+function mix(c1,c2,t){var a=hex(c1),b=hex(c2);return'rgb('+a.map(function(v,i){return Math.round(v+(b[i]-v)*t)}).join(',')+')'}
+function shade(c,k){var m=c.match(/\d+/g).map(Number);return'rgb('+m.map(function(v){return Math.max(0,Math.min(255,Math.round(v*k)))}).join(',')+')'}
+function toRgb(c){if(c.charAt(0)==='#')return'rgb('+hex(c).join(',')+')';return c}
+function lum(c){var m=toRgb(c).match(/\d+/g).map(Number);return(.299*m[0]+.587*m[1]+.114*m[2])/255}
+
+// ---------- card ----------
+function cards(){
+  var L=LOCS.filter(active),q=0,cap=0,val=0,daily=0,low=0,empty=0;
+  L.forEach(function(x){q+=x.q;cap+=x.cap;val+=x.q*x.pr.p;daily+=x.daily;if(x.st==='low')low++;if(x.st==='empty')empty++});
+  var items=[
+   ['Pezze in giacenza',fmt(q),'su '+fmt(cap)+' di capacità'],
+   ['Valore scorte','€ '+fmt(val/1000,1)+' k','giacenza × costo medio'],
+   ['Saturazione',cap?fmt(q/cap*100,1)+' %':'–','giacenza ÷ capacità'],
+   ['Rotazione scorte',q?fmt(daily*365/q,1)+'×':'–','volte all\'anno'],
+   ['Giorni di copertura',daily?fmt(q/daily,0)+' gg':'–','giacenza ÷ consumo'],
+   ['Sotto scorta',fmt(low),fmt(empty)+' ubicazioni vuote','alert']
+  ];
+  document.getElementById('cards').innerHTML=items.map(function(i){return'<div class="card'+(i[3]?' alert':'')+'"><div class="l">'+i[0]+'</div><div class="v">'+i[1]+'</div><div class="d">'+i[2]+'</div></div>'}).join('')
+}
+
+// ---------- matrice ----------
+function metric(L){
+  var q=0,cap=0,daily=0;L.forEach(function(x){q+=x.q;cap+=x.cap;daily+=x.daily});
+  if(!L.length)return null;
+  if(S.mat==='sat')return cap?q/cap*100:null;
+  if(S.mat==='qty')return q;
+  return daily?q/daily:null
+}
+function mfmt(v){return v==null?'–':S.mat==='sat'?fmt(v,0)+'%':S.mat==='qty'?fmt(v):fmt(v,0)+' gg'}
+function matrix(){
+  document.getElementById('matNote').textContent={sat:'Saturazione in %, colore più scuro = più pieno.',qty:'Pezze in giacenza, colore più scuro = più pezze.',cov:'Giorni di copertura, colore più scuro = più giorni.'}[S.mat];
+  var cells=[],vals=[];
+  AIS.forEach(function(_,a){var row=[];for(var l=0;l<LEV;l++){var v=metric(LOCS.filter(function(x){return x.a===a&&x.l===l&&active(x)}));row.push(v);if(v!=null)vals.push(v)}cells.push(row)});
+  var mn=Math.min.apply(null,vals),mx=Math.max.apply(null,vals),s0=css('--sat0'),s1=css('--sat1');
+  var h='<thead><tr><th class="row">Corridoio</th><th>Liv. 1</th><th>Liv. 2</th><th>Liv. 3</th><th>Totale</th></tr></thead><tbody>';
+  AIS.forEach(function(nm,a){
+    h+='<tr><th class="row" scope="row">'+nm+'</th>';
+    for(var l=0;l<LEV;l++){var v=cells[a][l],t=(v==null||mx===mn)?.5:(v-mn)/(mx-mn),bg=v==null?css('--empty'):mix(s0,s1,t);
+      var sel=S.selA===a&&S.selL===l;
+      h+='<td><button type="button" data-a="'+a+'" data-l="'+l+'" aria-pressed="'+sel+'" style="background:'+bg+';color:'+(lum(bg)>.55?'#10181F':'#FFFFFF')+'">'+mfmt(v)+'</button></td>'}
+    var tot=metric(LOCS.filter(function(x){return x.a===a&&active(x)}));
+    h+='<td class="tot"><button type="button" data-a="'+a+'" data-l="-1" aria-pressed="'+(S.selA===a&&S.selL===-1)+'">'+mfmt(tot)+'</button></td></tr>'});
+  h+='</tbody>';
+  document.getElementById('mat').innerHTML=h
+}
+document.getElementById('mat').addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;
+  var a=+b.dataset.a,l=+b.dataset.l;
+  if(S.selA===a&&S.selL===l){S.selA=-1;S.selL=-1}else{S.selA=a;S.selL=l}
+  render()
+});
+
+// ---------- lista ----------
+function list(){
+  var L=LOCS.filter(function(x){return active(x)&&x.st==='low'}).sort(function(a,b){return a.cov-b.cov||a.id.localeCompare(b.id)}).slice(0,6);
+  document.getElementById('list').innerHTML=L.length?L.map(function(x){
+    return'<li><button type="button" data-id="'+x.id+'" class="'+(S.focus===x.id?'sel':'')+'"><span class="loc">'+x.id+'</span><span class="prod">'+x.pr.n+' · '+x.q+'/'+x.cap+'</span><span class="pill '+x.st+'">'+fmt(x.cov,0)+' gg'+'</span></button></li>'}).join(''):'<li class="note">Nessuna ubicazione sotto scorta con questi filtri.</li>'
+}
+document.getElementById('list').addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;
+  S.focus=S.focus===b.dataset.id?null:b.dataset.id;render()
+});
+
+// ---------- mappa isometrica ----------
+var cv=document.getElementById('cv'),ctx=cv.getContext('2d'),tip=document.getElementById('tip'),mapbox=document.getElementById('mapbox');
+var SP=3,GX=BAYS,GY=(AIS.length-1)*SP+1;// SP = passo tra i corridoi (1 rack + 2 di corsia)
+var geo={s:1,ox:0,oy:0,W:0,H:0,cubes:[]};
+function proj(x,y,z){return[(x-y)*.866*geo.s+geo.ox,(x+y)*.5*geo.s-z*geo.s*.8+geo.oy]}
+function layout(){
+  var W=mapbox.clientWidth||600;
+  var raw=[[-1.2,0,0],[GX+1,0,0],[GX+1,GY+1,0],[-1.2,GY+1,0],[-1.2,0,LEV],[GX+1,0,LEV]];
+  var s=1,xs=[],ys=[];
+  var tmp=raw.map(function(p){return[(p[0]-p[1])*.866,(p[0]+p[1])*.5-p[2]*.8]});
+  var minx=Math.min.apply(null,tmp.map(function(p){return p[0]})),maxx=Math.max.apply(null,tmp.map(function(p){return p[0]}));
+  var miny=Math.min.apply(null,tmp.map(function(p){return p[1]})),maxy=Math.max.apply(null,tmp.map(function(p){return p[1]}));
+  var pad=22;s=(W-pad*2)/(maxx-minx);
+  var H=Math.round((maxy-miny)*s+pad*2);
+  var dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr;cv.height=H*dpr;cv.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0);
+  geo.s=s;geo.ox=pad-minx*s;geo.oy=pad-miny*s;geo.W=W;geo.H=H;
+  geo.cubes=LOCS.map(function(x){return{x:x,gx:x.b+.5,gy:x.a*SP+.5,gz:x.l}}).sort(function(a,b){return(a.gx+a.gy)-(b.gx+b.gy)||a.gz-b.gz});
+}
+function locColor(x){
+  if(S.color==='stato')return css(x.st==='ok'?'--ok':x.st==='low'?'--low':x.st==='over'?'--over':'--empty');
+  if(S.color==='abc')return css(x.pr.c==='A'?'--ca':x.pr.c==='B'?'--cb':'--cc');
+  return x.q===0?css('--empty'):mix(css('--sat0'),css('--sat1'),Math.min(1,x.q/x.cap))
+}
+function poly(pts,fill,stroke){ctx.beginPath();pts.forEach(function(p,i){i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])});ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke()}}
+function draw(){
+  ctx.clearRect(0,0,geo.W,geo.H);
+  poly([proj(0,0,0),proj(GX+1,0,0),proj(GX+1,GY+1,0),proj(0,GY+1,0)],css('--floor'),css('--floorline'));
+  // corsie: linee guida
+  ctx.strokeStyle=css('--floorline');ctx.lineWidth=1;ctx.setLineDash([4,4]);
+  for(var a=0;a<AIS.length-1;a++){var yy=a*SP+1+(SP-1)/2+.5;var p1=proj(0,yy,0),p2=proj(GX+1,yy,0);ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.stroke()}
+  ctx.setLineDash([]);
+  var s=geo.s,w=.8,hz=.62;
+  geo.cubes.forEach(function(c){
+    var x=c.x,on=active(x);
+    var sel=S.selA<0||(x.a===S.selA&&(S.selL<0||x.l===S.selL));
+    ctx.globalAlpha=on?(sel?1:.28):.1;
+    var base=locColor(x),m=base.charAt(0)==='#'?toRgb(base):base;
+    var X=c.gx-.5+(1-w)/2,Y=c.gy-.5+(1-w)/2,Z=c.gz*.8;
+    var top=[proj(X,Y,Z+hz),proj(X+w,Y,Z+hz),proj(X+w,Y+w,Z+hz),proj(X,Y+w,Z+hz)];
+    var left=[proj(X,Y+w,Z),proj(X+w,Y+w,Z),proj(X+w,Y+w,Z+hz),proj(X,Y+w,Z+hz)];
+    var right=[proj(X+w,Y,Z),proj(X+w,Y+w,Z),proj(X+w,Y+w,Z+hz),proj(X+w,Y,Z+hz)];
+    poly(left,shade(m,.82),null);poly(right,shade(m,.64),null);poly(top,shade(m,1.12),null);
+    c.cx=proj(X+w/2,Y+w/2,Z+hz/2)[0];c.cy=proj(X+w/2,Y+w/2,Z+hz/2)[1];c.top=top;c.left=left;c.right=right;
+    ctx.globalAlpha=1;
+    if(S.focus===x.id||(S.hover&&S.hover.x===x)){
+      ctx.lineWidth=2.5;ctx.strokeStyle=css('--fg');
+      [left,right,top].forEach(function(p){ctx.beginPath();p.forEach(function(q,i){i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1])});ctx.closePath();ctx.stroke()})
+    }
+  });
+  ctx.fillStyle=css('--fg');ctx.font='700 '+Math.max(12,geo.s*.6)+'px '+css('--body');ctx.textAlign='center';ctx.textBaseline='middle';
+  AIS.forEach(function(nm,a){var p=proj(-.7,a*SP+.5,0);ctx.fillText(nm,p[0],p[1])});
+}
+function legend(){
+  var items=S.color==='stato'?[['--ok','Normale'],['--low','Sotto scorta (< 26 % della capacità)'],['--over','Eccesso (> 92 %)'],['--empty','Vuota']]
+   :S.color==='abc'?[['--ca','Classe A · rotazione alta'],['--cb','Classe B'],['--cc','Classe C · rotazione bassa'],['--empty','']] .slice(0,3)
+   :null;
+  var el=document.getElementById('legend');
+  if(!items){el.innerHTML='<span><span class="sw" style="background:'+css('--sat0')+'"></span>poco pieno</span><span><span class="sw" style="background:'+css('--sat1')+'"></span>pieno</span><span><span class="sw" style="background:'+css('--empty')+'"></span>vuota</span>';return}
+  el.innerHTML=items.map(function(i){return'<span><span class="sw" style="background:'+css(i[0])+'"></span>'+i[1]+'</span>'}).join('')
+}
+function hit(ev){
+  var r=cv.getBoundingClientRect(),px=(ev.clientX-r.left)*(geo.W/r.width),py=(ev.clientY-r.top)*(geo.H/r.height),best=null;
+  for(var i=geo.cubes.length-1;i>=0;i--){var c=geo.cubes[i];if(!c.top||!active(c.x))continue;
+    if(inPoly(px,py,c.top)||inPoly(px,py,c.left)||inPoly(px,py,c.right)){best=c;break}}
+  return{c:best,px:px,py:py}
+}
+function inPoly(x,y,p){var ins=false;for(var i=0,j=p.length-1;i<p.length;j=i++){if(((p[i][1]>y)!==(p[j][1]>y))&&(x<(p[j][0]-p[i][0])*(y-p[i][1])/(p[j][1]-p[i][1])+p[i][0]))ins=!ins}return ins}
+function showTip(c){
+  if(!c){tip.hidden=true;return}
+  var x=c.x,stN={ok:'Normale',low:'Sotto scorta',over:'Eccesso',empty:'Vuota'}[x.st];
+  tip.innerHTML='<b>'+x.id+'</b> · Classe '+x.pr.c+'<br>'+x.pr.n+'<br>'+FORN[x.pr.f]+'<br>'+x.q+' / '+x.cap+' pezze · '+(x.q?fmt(x.cov,0)+' gg':'–')+'<br>'+stN;
+  tip.hidden=false;
+  var W=mapbox.clientWidth,tw=tip.offsetWidth,th=tip.offsetHeight;
+  var left=Math.min(Math.max(4,c.cx-tw/2),W-tw-4),top=c.cy-th-14;if(top<0)top=c.cy+18;
+  tip.style.left=left+'px';tip.style.top=top+'px'
+}
+cv.addEventListener('pointermove',function(e){var h=hit(e);if((S.hover&&S.hover.x)!==(h.c&&h.c.x)){S.hover=h.c;draw();showTip(h.c)}});
+cv.addEventListener('pointerleave',function(){S.hover=null;draw();showTip(null)});
+cv.addEventListener('click',function(e){var h=hit(e);if(h.c){S.focus=S.focus===h.c.x.id?null:h.c.x.id;S.hover=h.c;render();showTip(h.c)}});
+
+// ---------- regia ----------
+function render(){cards();matrix();list();legend();draw()}
+function bind(id,key){document.getElementById(id).addEventListener('change',function(e){S[key]=e.target.value;render()})}
+bind('fClasse','cls');bind('fForn','forn');bind('fColor','color');bind('fMat','mat');
+document.getElementById('reset').addEventListener('click',function(){S.selA=-1;S.selL=-1;S.focus=null;S.hover=null;S.cls='';S.forn='';S.color='stato';S.mat='sat';['fClasse','fForn'].forEach(function(i){document.getElementById(i).value=''});document.getElementById('fColor').value='stato';document.getElementById('fMat').value='sat';showTip(null);render()});
+function full(){layout();render()}
+window.addEventListener('resize',full);
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',render)}catch(e){}
+new MutationObserver(render).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(full);
+full();
+})();
+</script>
+
+</body></html>
